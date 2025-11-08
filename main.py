@@ -86,5 +86,5 @@ class ChatRequest(BaseModel):
 async def chat(req: ChatRequest):
     answer_data = chat_model.invoke(req.message)
 
-    return {"response": f"answer: {answer_data.content}"}
+    return {"response": {answer_data.content}}
 
