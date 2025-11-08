@@ -43,18 +43,20 @@ runnable_with_history = RunnableWithMessageHistory(
     history_messages_key="history"
 )
 # 実際の応答生成の例
-def chat_with_bot(session_id: str):
+def chat_with_bot(session_id: str, req:str):
     count = 0
     while True:
         print("---")
-        input_message = input(f"[{count}]あなた: ")
+        # input_message = input(f"[{count}]あなた: ")
+        input_message = req
         if input_message.lower() == "終了":
             break
 
-        if input_message.lower() == "削除":
+        if input_message.lower() in ["履歴削除"]:
             memory = get_session_history(session_id)
             memory.clear()
             print("履歴削除しました。")
+            return "clear"
 
         # プロンプトテンプレートに基づいて応答を生成
         response = runnable_with_history.invoke(
@@ -64,6 +66,7 @@ def chat_with_bot(session_id: str):
         
         print(f"AI: {response.content}")
         count += 1
+        return response.content
 
 # React の開発サーバー（例: http://localhost:5173）を許可
 origins = [
@@ -84,7 +87,10 @@ class ChatRequest(BaseModel):
 
 @app.post("/")
 async def chat(req: ChatRequest):
-    answer_data = chat_model.invoke(req.message)
+    print(req.message)
+    # answer_data = chat_model.invoke(req.message)
+    session_id = "example_session"
+    ret = chat_with_bot(session_id, req.message)
 
-    return {"response": {answer_data.content}}
+    return {"response": {ret}}
 
