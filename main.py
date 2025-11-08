@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -19,7 +20,11 @@ app.add_middleware(
     allow_headers=["*"],    # すべてのヘッダーを許可
 )
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+class ChatRequest(BaseModel):
+    message: str
+
+@app.post("/")
+async def chat(req: ChatRequest):
+    
+    return {"response": f"あなたのメッセージ: {req.message}"}
 
