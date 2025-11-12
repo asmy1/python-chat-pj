@@ -1,16 +1,24 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import httpx
 from pydantic import BaseModel
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_google_community.search import GoogleSearchAPIWrapper
+from langchain.tools import BaseTool
 
 from langchain_openai.chat_models import ChatOpenAI
 from dotenv import load_dotenv
+import requests
 
 load_dotenv()
+
+# NewsAPI用変数
+NEWSAPI_KEY = os.environ.get("NEWSAPI_KEY")
+NEWSAPI_ENDPOINT = "https://newsapi.org/v2/everything"
 
 app = FastAPI()
 
@@ -59,6 +67,20 @@ chat_runnable = RunnableWithMessageHistory(
 # Google Search APIの設定
 search_tool = GoogleSearchAPIWrapper()
 
+# 日本語を英語に翻訳
+def translate_to_english(text: str) -> str:
+    """
+    日本語を英語に翻訳して返す
+    """
+    prompt = f"""
+以下の日本語を**余計な説明なしで英語に翻訳してください**。
+出力は翻訳文のみとしてください。
+
+日本語: {text}
+"""
+    response = chat_model.invoke(prompt)
+    return response.content.strip()
+
 
 def run_chat_mode(session_id: str, user_input: str):
     """💬 通常の会話モード"""
@@ -67,6 +89,64 @@ def run_chat_mode(session_id: str, user_input: str):
         config={"configurable": {"session_id": session_id}}
     )
     return response.content
+
+
+# --- ニュース検索 ---
+def search_news(query: str):
+    print("query: ", query)
+    params = {
+        "q": query,       
+        "sortBy": "relevancy",               # ソート順
+        "apiKey": NEWSAPI_KEY,
+    }
+    response = requests.get(NEWSAPI_ENDPOINT, params=params)
+    # レスポンスを出力
+    if response.status_code == 200:
+        articles = response.json().get("articles", [])
+        print(articles)
+        for i, article in enumerate(articles):
+            print(f"{i + 1}. {article['title']} - {article['source']['name']}")
+        return articles
+    else:
+        print(f"Error: {response.status_code} - {response.text}")
+
+def format_articles(articles):
+    """
+    NewsAPIから返ってきた articles を UI 向けに整形（タイトル＋リンクのみ）
+    
+    Parameters
+    ----------
+    articles : list[dict]
+        NewsAPI の記事情報
+    
+    Returns
+    -------
+    str
+        Markdown形式で整形された記事リスト
+    """
+    if not articles:
+        return "該当するニュースはありません。"
+
+    formatted = []
+    for i, article in enumerate(articles, start=1):
+        title = article.get("title", "タイトルなし")
+        url = article.get("url", "")
+        # Markdown形式でリンクを作成
+        formatted.append(f"{i}. [{title}]({url})")
+
+    return "\n".join(formatted)
+
+# --- ニュース検索モード関数 ---
+def run_news_mode(session_id: str, user_input: str):
+    memory = get_session_history(session_id)
+    translated_query = translate_to_english(user_input)
+    print("translate:", translated_query)
+    articles = search_news(translated_query)
+    format_result = format_articles(articles)
+    memory.add_user_message(user_input)
+    memory.add_ai_message(format_result)
+
+    return f"📰 ニュース検索結果の要約:\n{format_result}"
 
 def run_search_mode(session_id: str, user_input: str) -> str:
     """🌐 Google検索モード"""
@@ -82,7 +162,6 @@ def run_search_mode(session_id: str, user_input: str) -> str:
         result = search_tool.run(query)
     except Exception as e:
         return f"検索中にエラーが発生しました: {e}"
-    # run_search_mode.search_cache[query] = result
 
     # 結果が長い場合は要約
     if len(result) > 1500:
@@ -98,18 +177,31 @@ def run_search_mode(session_id: str, user_input: str) -> str:
 
 # モード自動判定
 def detect_mode(user_input: str) -> str:
-    prompt = f"次の文章が検索指示か日常会話か判定してください。「検索」なら search、「会話」なら chat を返してください:\n{user_input}"
+    prompt = f"""
+次の文章がどのモードか判定してください。
+「ニュース関連の検索」なら news、
+「一般的な検索」なら search、
+「会話・雑談」なら chat を返してください。
+文章: 「{user_input}」
+"""
+    # ChatOpenAIで判定
     response = chat_model.invoke(prompt)
-    return "search" if "search" in response.content.lower() else "chat"
+    content = response.content.lower()
+    print(f"content: {content}")
+
+    if "news" in content:
+        return "news"
+    elif "search" in content:
+        return "search"
+    else:
+        return "chat"
 
 class ChatRequest(BaseModel):
     message: str
-    mode: str | None = None  # "chat" or "search" or None（自動判定）
-
-
+    mode: str | None = None  # "chat" or "search" or "news" or None（自動判定）
 
 @app.post("/")
-async def chat(req: ChatRequest):
+def chat(req: ChatRequest):
     print(req.message)
     session_id = "example_session"
     user_input = req.message.strip()
@@ -125,10 +217,12 @@ async def chat(req: ChatRequest):
         return {"response": "履歴を削除しました。"}
     
     # 各モードへルーティング
-    if mode == "search":
+    if mode == "news":
+        answer = run_news_mode(session_id, user_input)
+    elif mode == "search":
         answer = run_search_mode(session_id, user_input)
     else:
-        answer = run_chat_mode(session_id, user_input)
+        answer = run_chat_mode(user_input, user_input)
 
     return {"mode": mode, "response": answer}
 
