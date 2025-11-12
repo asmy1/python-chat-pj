@@ -8,7 +8,6 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_google_community.search import GoogleSearchAPIWrapper
 
 from langchain_openai.chat_models import ChatOpenAI
-import sqlite3
 from dotenv import load_dotenv
 
 load_dotenv()
