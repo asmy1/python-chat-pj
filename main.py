@@ -22,10 +22,9 @@ NEWSAPI_ENDPOINT = "https://newsapi.org/v2/everything"
 
 app = FastAPI()
 
-# React の開発サーバー（例: http://localhost:5173）を許可
+# React の開発サーバー（http://localhost:5173）を許可
 origins = [
     "http://localhost:5173",  # Vite のデフォルトポート
-    "http://localhost:3000",  # CRA の場合
 ]
 
 app.add_middleware(
