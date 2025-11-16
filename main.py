@@ -79,9 +79,8 @@ def translate_to_english(text: str) -> str:
     response = chat_model.invoke(prompt)
     return response.content.strip()
 
-
+# チャット会話モード
 def run_chat_mode(session_id: str, user_input: str):
-    """💬 通常の会話モード"""
     response = chat_runnable.invoke(
         {"input": user_input},
         config={"configurable": {"session_id": session_id}}
@@ -89,7 +88,7 @@ def run_chat_mode(session_id: str, user_input: str):
     return response.content
 
 
-# --- ニュース検索 ---
+# ニュース検索
 def search_news(query: str):
     print("query: ", query)
     params = {
@@ -108,6 +107,7 @@ def search_news(query: str):
     else:
         print(f"Error: {response.status_code} - {response.text}")
 
+# ニュース記事のフォーマット
 def format_articles(articles):
     """
     NewsAPIから返ってきた articles を UI 向けに整形（タイトル＋リンクのみ）
@@ -134,7 +134,7 @@ def format_articles(articles):
 
     return "\n".join(formatted)
 
-# --- ニュース検索モード関数 ---
+# ニュース検索モード
 def run_news_mode(session_id: str, user_input: str):
     memory = get_session_history(session_id)
     translated_query = translate_to_english(user_input)
@@ -146,8 +146,8 @@ def run_news_mode(session_id: str, user_input: str):
 
     return f"📰 ニュース検索結果の要約:\n{format_result}"
 
+# Google検索モード
 def run_search_mode(session_id: str, user_input: str) -> str:
-    """🌐 Google検索モード"""
     memory = get_session_history(session_id)
     query = user_input
     for kw in ["検索", "調べて", "探して"]:
@@ -213,14 +213,14 @@ def chat(req: ChatRequest):
     if user_input.lower() == "履歴削除":
         store.pop(session_id, None)
         return {"response": "履歴を削除しました。"}
-    
+
     # 各モードへルーティング
     if mode == "news":
         answer = run_news_mode(session_id, user_input)
     elif mode == "search":
         answer = run_search_mode(session_id, user_input)
     else:
-        answer = run_chat_mode(user_input, user_input)
+        answer = run_chat_mode(session_id, user_input)
 
     return {"mode": mode, "response": answer}
 
