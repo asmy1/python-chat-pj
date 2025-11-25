@@ -25,6 +25,7 @@ app = FastAPI()
 origins = [
     # "http://localhost:5173",  # Vite のデフォルトポート
     "https://chat-pj.onrender.com/",
+    "*",
 ]
 
 app.add_middleware(
