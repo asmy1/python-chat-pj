@@ -15,6 +15,8 @@ import requests
 
 load_dotenv()
 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 # NewsAPI用変数
 NEWSAPI_KEY = os.environ.get("NEWSAPI_KEY")
 NEWSAPI_ENDPOINT = "https://newsapi.org/v2/everything"
@@ -55,7 +57,7 @@ chat_prompt  = ChatPromptTemplate.from_messages(
 )
 
 # モデル作成
-chat_model = ChatOpenAI(model="gpt-4o-mini")
+chat_model = ChatOpenAI(model="gpt-4o-mini", openai_api_key=OPENAI_API_KEY)
 
 # チャットRunnable（履歴保存あり）
 chat_runnable = RunnableWithMessageHistory(
