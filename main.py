@@ -23,7 +23,8 @@ app = FastAPI()
 
 # React の開発サーバー（http://localhost:5173）を許可
 origins = [
-    "http://localhost:5173",  # Vite のデフォルトポート
+    # "http://localhost:5173",  # Vite のデフォルトポート
+    "https://chat-pj.onrender.com/",
 ]
 
 app.add_middleware(
