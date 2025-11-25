@@ -24,7 +24,8 @@ app = FastAPI()
 # React の開発サーバー（http://localhost:5173）を許可
 origins = [
     # "http://localhost:5173",  # Vite のデフォルトポート
-    "https://chat-pj.onrender.com/",
+    "https://chat-pj.onrender.com",
+    "https://python-chat-pj.onrender.com",
     "*",
 ]
 
